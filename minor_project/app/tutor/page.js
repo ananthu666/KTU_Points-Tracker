@@ -3,21 +3,24 @@ import NavBar from "@/components/NavBar";
 import TopBar from "@/components/TopBar";
 import React, { useEffect, useState } from "react";
 import { FaEye } from "react-icons/fa";
-import supabase from "@/lib/supabaseClient"; 
+import supabase from "@/lib/supabaseClient";
+import DocumentViewer from "../DocumentViewer";
 
 const Page = () => {
   // Example new activities for approval
-  const [achieve,setachieve]=useState([]);
+  const [achieve, setachieve] = useState([]);
   const fetchAchievements = async () => {
     const { data: achievements, error } = await supabase
       .from("achievements")
-      .select(`*,
+      .select(
+        `*,
         *,
         students (
           * 
           
         )
-      `) // Select relevant columns
+      `
+      ) // Select relevant columns
       .order("collegeid", { ascending: true });
 
     if (error) {
@@ -28,11 +31,10 @@ const Page = () => {
   };
   useEffect(() => {
     fetchAchievements();
-    
   }, []);
 
-  console.log("ach",achieve);
-      
+  console.log("ach", achieve);
+
   const [activities, setActivities] = useState([
     {
       sl_no: 1,
@@ -225,10 +227,10 @@ const Page = () => {
     try {
       // Update the "achievements" table or any other table you are working with
       const { data, error } = await supabase
-        .from('achievements') // Replace with your table name
+        .from("achievements") // Replace with your table name
         .update({ approved: "approved" }) // Change `approved` field or any other field to be updated
-        .eq('id', id); // Filter by the `id` or other field
-  
+        .eq("id", id); // Filter by the `id` or other field
+
       if (error) {
         console.error("Error updating approval status:", error);
       } else {
@@ -240,17 +242,16 @@ const Page = () => {
       console.error("Unexpected error:", error);
     }
   };
-  
 
   // Function to handle rejection
   const handleRejection = async (id) => {
     try {
       // Update the "achievements" table or any other table you are working with
       const { data, error } = await supabase
-        .from('achievements') // Replace with your table name
+        .from("achievements") // Replace with your table name
         .update({ approved: "rejected" }) // Change `approved` field or any other field to be updated
-        .eq('id', id); // Filter by the `id` or other field
-  
+        .eq("id", id); // Filter by the `id` or other field
+
       if (error) {
         console.error("Error updating approval status:", error);
       } else {
@@ -262,12 +263,14 @@ const Page = () => {
       console.error("Unexpected error:", error);
     }
   };
-  
 
   // Calculate current activities for pagination
   const indexOfLastActivity = currentPage * activitiesPerPage;
   const indexOfFirstActivity = indexOfLastActivity - activitiesPerPage;
-  const currentActivities = activities.slice(indexOfFirstActivity, indexOfLastActivity);
+  const currentActivities = activities.slice(
+    indexOfFirstActivity,
+    indexOfLastActivity
+  );
   const totalPages = Math.ceil(activities.length / activitiesPerPage);
 
   return (
@@ -276,7 +279,9 @@ const Page = () => {
       <div className="flex-1">
         <TopBar />
         <div className="p-6">
-          <h2 className="text-2xl font-semibold mb-4">New Activities for Approval</h2>
+          <h2 className="text-2xl font-semibold mb-4">
+            New Activities for Approval
+          </h2>
           <table className="w-full table-auto bg-white shadow-md rounded-lg overflow-hidden mb-6">
             <thead>
               <tr className="bg-gray-700 text-white">
@@ -291,24 +296,29 @@ const Page = () => {
               </tr>
             </thead>
             <tbody>
-              {achieve.map((activity,index) => (
-                <tr key={activity.sl_no} className="hover:bg-gray-100 border-b border-gray-200">
-                  <td className="px-4 py-2">{index+1}</td>
+              {achieve.map((activity, index) => (
+                <tr
+                  key={activity.sl_no}
+                  className="hover:bg-gray-100 border-b border-gray-200"
+                >
+                  <td className="px-4 py-2">{index + 1}</td>
                   <td className="px-4 py-2">{activity.students.username}</td>
                   <td className="px-4 py-2">{activity.act_name}</td>
                   <td className="px-4 py-2">{activity.act_head}</td>
                   <td className="px-4 py-2">{activity.points}</td>
-                  <td className="px-4 py-2">{activity.approved ? "Yes" : "No"}</td>
+                  <td className="px-4 py-2">
+                    {activity.approved ? "Yes" : "No"}
+                  </td>
                   <td className="px-4 py-2">
                     <button
-                      onClick={() => setSelectedImage(activity.image_url)}
+                      onClick={() => setSelectedImage(activity.proof_url)}
                       className=""
                     >
                       <FaEye size={20} />
                     </button>
                   </td>
                   <td className="px-4 py-2 flex space-x-2">
-                    {activity.approved=="pending" ? (
+                    {activity.approved == "pending" ? (
                       <>
                         <button
                           onClick={() => handleApproval(activity.id)}
@@ -323,18 +333,16 @@ const Page = () => {
                           Reject
                         </button>
                       </>
+                    ) : activity.approved == "approved" ? (
+                      <span className="text-green-600">Approved</span>
                     ) : (
-                      (activity.approved=="approved"?
-                        <span className="text-green-600">Approved</span>:
-                        <span className="text-red-600">Rejected</span>)
-                      
+                      <span className="text-red-600">Rejected</span>
                     )}
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
-
           {/* Pagination Controls */}
           <div className="flex justify-between">
             <button
@@ -344,29 +352,25 @@ const Page = () => {
             >
               Previous
             </button>
-            <span className="self-center">Page {currentPage} of {totalPages}</span>
+            <span className="self-center">
+              Page {currentPage} of {totalPages}
+            </span>
             <button
-              onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+              onClick={() =>
+                setCurrentPage((prev) => Math.min(prev + 1, totalPages))
+              }
               disabled={currentPage === totalPages}
               className="bg-gray-500 text-white px-4 py-2 rounded disabled:opacity-50"
             >
               Next
             </button>
           </div>
-
           {/* Modal for Viewing Image */}
           {selectedImage && (
-            <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50">
-              <div className="bg-white px-4 py-2 rounded shadow-lg relative">
-                <button
-                  onClick={() => setSelectedImage(null)}
-                  className="absolute top-2 right-2 text-gray-600 hover:text-gray-800"
-                >
-                  &times;
-                </button>
-                <img src={selectedImage} alt="Activity" className="max-w-full h-auto" />
-              </div>
-            </div>
+            <DocumentViewer
+              url={selectedImage}
+              onClose={() => setSelectedImage(null)}
+            />
           )}
         </div>
       </div>

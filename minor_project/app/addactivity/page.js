@@ -2,27 +2,25 @@
 import NavBar from "@/components/NavBar";
 import TopBar from "@/components/TopBar";
 import React, { useState } from "react";
-import supabase from '@/lib/supabaseClient'; // Import your Supabase client
+import supabase from '@/lib/supabaseClient';
 
 const Page = () => {
-  // State to hold form data
   const storedStudentData = localStorage.getItem('studentdata');
-  
-
-  // Fetch student data based on email
   const studentData = storedStudentData ? JSON.parse(storedStudentData) : null;
-  console.log("/./././..",studentData.collegeid)
+  
+  // Combined state for form data and file
   const [formData, setFormData] = useState({
-    collegeid: studentData.collegeid, // Student ID
+    collegeid: studentData?.collegeid || '',
     activity_name: "",
     activity_head: "",
     points: "",
-    email: localStorage.getItem('studentemail'), // Get student email from local storage
-    approved: "pending", // Default approved status to 'pending'
-    proofUrl: "", // URL to store uploaded proof
+    email: localStorage.getItem('studentemail') || '',
+    approved: "pending",
   });
+  
   const [file, setFile] = useState(null);
-  // Handle change for input fields
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
     setFormData({
@@ -30,59 +28,83 @@ const Page = () => {
       [name]: type === "checkbox" ? checked : value,
     });
   };
+
   const handleFileChange = (e) => {
     setFile(e.target.files[0]);
   };
+
   const uploadFile = async () => {
     if (!file) return null;
-    console.log("stated")
+    
     const fileExt = file.name.split('.').pop();
-    const fileName = `${Date.now()}.${fileExt}`;
+    const fileName = `${Math.random().toString(36).substr(2, 9)}_${Date.now()}.${fileExt}`;
+    const filePath = `proofs/${fileName}`;
+    
     const { data, error } = await supabase.storage
-      .from('achievements') // Ensure you have a 'achievements' bucket created in Supabase Storage
-      .upload(`proofs/${fileName}`, file);
+      .from('achievements')
+      .upload(filePath, file);
 
     if (error) {
-      console.error("Error uploading file:", error);
-      return null;
+      throw new Error(`Error uploading file: ${error.message}`);
     }
 
-    // Return the URL of the uploaded file
-    const { publicURL } = supabase.storage.from('achievements').getPublicUrl(`proofs/${fileName}`);
-    return publicURL;
+    // Construct the complete URL for the uploaded file
+    const {
+      data: { publicUrl },
+    } = supabase.storage
+      .from('achievements')
+      .getPublicUrl(filePath);
+
+    return publicUrl;
   };
-  // Handle form submission
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    // Submit the form data to Supabase
-    // const proofUrl = await uploadFile();
-    // console.log("proofurl",proofUrl);
-    const { data, error } = await supabase
-      .from('achievements') // Replace with your actual table name
-      .insert([{
-        collegeid: formData.collegeid,
-        act_name: formData.activity_name,
-        act_head: formData.activity_head,
-        email:formData.email,
-        points: formData.points,
-        approved: formData.approved, // Set approved to 'pending'
-        // proof_url: proofUrl, 
-      }]);
+    setIsSubmitting(true);
 
-    if (error) {
-      console.error("Error inserting data:", error);
-    } else {
-      console.log("Data inserted successfully:", data);
+    try {
+      // Upload file first and get the public URL
+      const proofUrl = await uploadFile();
+      
+      if (!proofUrl) {
+        throw new Error('File upload failed');
+      }
+
+      // Submit the form data with the proof URL
+      const { data, error } = await supabase
+        .from('achievements')
+        .insert([{
+          collegeid: formData.collegeid,
+          act_name: formData.activity_name,
+          act_head: formData.activity_head,
+          email: formData.email,
+          points: formData.points,
+          approved: formData.approved,
+          proof_url: proofUrl, // Use the complete public URL
+        }]);
+
+      if (error) throw error;
+
       alert("Achievement submitted successfully!");
-      // Reset the form after successful submission
+      
+      // Reset form
       setFormData({
-        student_id: "",
+        ...formData,
         activity_name: "",
         activity_head: "",
         points: "",
-        approved: "pending", // Reset to 'pending'
-        // proofUrl: "",
       });
+      setFile(null);
+      
+      // Reset file input
+      const fileInput = document.getElementById('file');
+      if (fileInput) fileInput.value = '';
+
+    } catch (error) {
+      console.error("Error:", error);
+      alert(`Error submitting achievement: ${error.message}`);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -92,24 +114,8 @@ const Page = () => {
       <div className="flex-1">
         <TopBar />
         <div className="p-6">
-          {/* Add Achievement Form */}
           <h2 className="text-2xl font-semibold mb-6">Add New Achievement</h2>
           <form onSubmit={handleSubmit} className="space-y-6 bg-white rounded-lg">
-            {/* div for student id */}
-            {/* <div>
-              <label htmlFor="student_id" className="block text-lg font-medium text-gray-700">
-                Student ID
-              </label>
-              <input
-                type="text"
-                name="student_id"
-                id="student_id"
-                value={formData.student_id}
-                className="mt-2 p-2 w-full border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
-                placeholder="Enter KTU ID"
-                readOnly
-              />
-            </div> */}
             <div>
               <label htmlFor="activity_name" className="block text-lg font-medium text-gray-700">
                 Activity Name
@@ -157,7 +163,8 @@ const Page = () => {
                 required
               />
             </div>
-            {/* <div>
+
+            <div>
               <label htmlFor="file" className="block text-lg font-medium text-gray-700">
                 Upload Proof (Image/PDF)
               </label>
@@ -168,13 +175,16 @@ const Page = () => {
                 className="mt-2 p-2 w-full border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
                 required
               />
-            </div> */}
+            </div>
 
             <button
               type="submit"
-              className="w-full py-3 bg-blue-500 text-white text-lg font-semibold rounded-lg hover:bg-blue-600 transition-all"
+              disabled={isSubmitting}
+              className={`w-full py-3 ${
+                isSubmitting ? 'bg-gray-400' : 'bg-blue-500 hover:bg-blue-600'
+              } text-white text-lg font-semibold rounded-lg transition-all`}
             >
-              Submit Achievement
+              {isSubmitting ? 'Submitting...' : 'Submit Achievement'}
             </button>
           </form>
         </div>
